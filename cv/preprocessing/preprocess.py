@@ -153,21 +153,7 @@ def process_image_folder(input_dir: str, output_dir: Optional[str] = None) -> st
 
 
 def process_video(video_path: str, output_dir: Optional[str] = None, frame_step: int = 1) -> str:
-    """
-    Extract frames from a video and run the image folder processor.
-
-    Args:
-        video_path: path to input video (mp4).
-        output_dir: optional directory to write final CSV. If None, CSV
-            will be written next to the video file.
-        frame_step: sample every N-th frame (1 = every frame).
-
-    Returns:
-        Path to the written CSV file.
-    """
     video_path = os.path.abspath(video_path)
-    if not os.path.exists(video_path):
-        raise FileNotFoundError(video_path)
 
     temp_dir = tempfile.mkdtemp(prefix="preprocess_frames_")
     try:

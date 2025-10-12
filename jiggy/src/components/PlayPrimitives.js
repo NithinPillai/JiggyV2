@@ -4,18 +4,19 @@ import PrimaryButton from './Buttons';
 export const CountdownOverlay = ({ value }) => (
   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
     <div className="flex flex-col items-center gap-6">
-      <div className="text-[180px] font-black leading-none text-indigo-300">{value}</div>
-      <PrimaryButton className="pointer-events-auto">START</PrimaryButton>
+      {/* smaller by default so it fits on laptop screens; increases on larger displays */}
+      <div className="text-[96px] md:text-[160px] font-black leading-none text-indigo-300">{value}</div>
     </div>
   </div>
 );
 
 export const ProgressBar = ({ segments = [], elapsed = 0, total = 1 }) => {
+  const pct = total > 0 ? Math.min(100, (elapsed / total) * 100) : 0;
   return (
-    <div className="w-full rounded-xl bg-gray-200">
+    <div className="w-full rounded-xl bg-gray-200 relative">
       <div className="flex h-6 w-full overflow-hidden rounded-xl">
         {segments.map((s, i) => {
-          const w = (s.dur / total) * 100 + '%';
+          const w = total > 0 ? (s.dur / total) * 100 + '%' : '0%';
           const colorClass =
             s.color === 'red'
               ? 'bg-red-400'
@@ -24,6 +25,10 @@ export const ProgressBar = ({ segments = [], elapsed = 0, total = 1 }) => {
               : 'bg-green-400';
           return <div key={i} className={`h-full ${colorClass}`} style={{ width: w }} />;
         })}
+      </div>
+      {/* playhead */}
+      <div className="absolute top-0 left-0 h-full" style={{ width: `${pct}%`, pointerEvents: 'none' }}>
+        <div className="h-full w-0.5 bg-black/80 ml-[calc(100%-0.5px)]" />
       </div>
     </div>
   );
