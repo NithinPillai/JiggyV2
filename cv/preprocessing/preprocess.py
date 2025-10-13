@@ -91,116 +91,112 @@ def draw_landmarks_on_image(rgb_image, detection_result):
     return annotated_image  # No need to convert again as it's already in BGR
 
 
-
-
-def process_image_folder(input_dir: str, output_dir: Optional[str] = None) -> str:
-    """
-    Process a folder of PNG images and write a CSV of pose angles.
-
-    Args:
-        input_dir: directory containing PNG frames.
-        output_dir: optional directory to write CSV. If None, writes to
-            ./output_csv next to this script.
-
-    Returns:
-        Path to the written CSV file.
-    """
-    input_dir = os.path.abspath(input_dir)
-
-
-    files = [
-        f for f in os.listdir(input_dir)
-        if os.path.isfile(os.path.join(input_dir, f)) and f.lower().endswith('.png')
-    ]
-    files.sort()
-
-
-    rows: List[Dict[str, float]] = []
-
-
-    for fname in files:
-        fpath = os.path.join(input_dir, fname)
-
-
-        mp_image = mp.Image.create_from_file(fpath)
-
-
-        result = detector.detect(mp_image)
-
-
-        if result.pose_landmarks and len(result.pose_landmarks) > 0:
-            angles = get_pose_angles(result.pose_landmarks[0])
-        else:
-            angles = {k: math.nan for k in [
-                'right_elbow','left_elbow','right_knee','left_knee','right_shoulder','left_shoulder']}
-
-
-        row = {'file': fname}
-        row.update(angles)
-        rows.append(row)
-
-
-    df = pd.DataFrame(rows)
-    folder_name = os.path.basename(os.path.dirname(input_dir))
-    if output_dir is None:
-        output_dir = os.path.join(os.path.dirname(__file__), "output_csv")
-    os.makedirs(output_dir, exist_ok=True)
-    output_csv = os.path.join(output_dir, f"{folder_name}_pose_angles.csv")
-    df.to_csv(output_csv, index=False)
-
-
-    return output_csv
-
-
-def process_video(video_path: str, output_dir: Optional[str] = None, frame_step: int = 1) -> str:
+def process_video(video_path: str, output_dir: Optional[str] = None, show: bool = False) -> str:
+    video_path = os.path.abspath(video_path)
     video_path = os.path.abspath(video_path)
 
-    temp_dir = tempfile.mkdtemp(prefix="preprocess_frames_")
-    try:
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            raise RuntimeError(f"Cannot open video: {video_path}")
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"Cannot open video: {video_path}")
 
-        frame_idx = 0
-        saved_idx = 0
+    fps = cap.get(cv2.CAP_PROP_FPS) or 0
+    frame_idx = 0
+    rows = []
+
+    try:
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-            if frame_idx % frame_step == 0:
-                # Save as PNG for the existing pipeline
-                fname = f"frame_{saved_idx:06d}.png"
-                fpath = os.path.join(temp_dir, fname)
-                # frame is BGR from OpenCV
-                cv2.imwrite(fpath, frame)
-                saved_idx += 1
+
+            # timestamp in milliseconds
+            time_ms = int((frame_idx / fps) * 1000) if fps > 0 else 0
+            # convert BGR to RGB for Mediapipe
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # Wrap numpy array in Mediapipe Image with image_format and data
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+            try:
+                detection_result = detector.detect(mp_image)
+            except Exception as e:
+                # if detection fails, log and continue
+                print(f"Warning: detection failed on frame {frame_idx}: {e}", file=sys.stderr)
+                detection_result = None
+
+            angles = {
+                'right_elbow': 181,
+                'left_elbow': 181,
+                'right_knee': 181,
+                'left_knee': 181,
+                'right_shoulder': 181,
+                'left_shoulder': 181,
+            }
+
+            if detection_result is not None and getattr(detection_result, 'pose_landmarks', None):
+                pose_list = detection_result.pose_landmarks
+                if len(pose_list) > 0:
+                    # take the first detected pose
+                    landmarks = pose_list[0]
+                    angles = get_pose_angles(landmarks)
+
+            # If requested, draw landmarks on the frame and display it.
+            if show and detection_result is not None and getattr(detection_result, 'pose_landmarks', None):
+                try:
+                    # draw_landmarks_on_image expects an RGB image; we already have `rgb` above
+                    annotated = draw_landmarks_on_image(rgb, detection_result)
+                    # annotated is in BGR color space which OpenCV expects for imshow
+                    # Compute wait time from video fps (ms). Ensure at least 1 ms.
+                    wait_ms = max(1, int(1000 / fps)) if fps and fps > 0 else 1
+                    cv2.imshow('Annotated Pose', annotated)
+                    key = cv2.waitKey(wait_ms) & 0xFF
+                    # Press 'q' to quit early
+                    if key == ord('q'):
+                        print('User requested quit, stopping playback.')
+                        break
+                except Exception as e:
+                    print(f"Warning: failed to draw/display landmarks on frame {frame_idx}: {e}", file=sys.stderr)
+
+            row = {
+                'frame': frame_idx,
+                'time_ms': time_ms,
+                'right_elbow': angles['right_elbow'],
+                'left_elbow': angles['left_elbow'],
+                'right_knee': angles['right_knee'],
+                'left_knee': angles['left_knee'],
+                'right_shoulder': angles['right_shoulder'],
+                'left_shoulder': angles['left_shoulder'],
+            }
+            rows.append(row)
+
             frame_idx += 1
 
         cap.release()
 
-        if saved_idx == 0:
+        if show:
+            try:
+                cv2.destroyAllWindows()
+            except Exception:
+                pass
+
+        if len(rows) == 0:
             raise RuntimeError("No frames were extracted from the video")
 
-        # Run the existing image-folder processor
-        csv_path = process_image_folder(temp_dir, output_dir=None)
+        # Build DataFrame and write CSV
+        df = pd.DataFrame(rows)
 
-        # If caller requested a specific output_dir (e.g. next to video), move it there
         if output_dir is None:
-            # by default place next to video
             output_dir = os.path.dirname(video_path)
         os.makedirs(output_dir, exist_ok=True)
 
         final_name = os.path.splitext(os.path.basename(video_path))[0] + "_pose_angles.csv"
         final_path = os.path.join(output_dir, final_name)
-        shutil.move(csv_path, final_path)
+        df.to_csv(final_path, index=False)
 
         return final_path
     finally:
-        # remove temporary frames folder
-        shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-
+        try:
+            cap.release()
+        except Exception:
+            pass
 
 
 
@@ -209,25 +205,8 @@ def process_video(video_path: str, output_dir: Optional[str] = None, frame_step:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Preprocess video or image folder to CSV of pose angles")
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--video", "-v", help="Path to input video file (mp4)")
-    group.add_argument("--images", "-i", help="Path to folder containing PNG images to process")
-    parser.add_argument("--out", "-o", help="Output directory for CSV (optional)")
-    parser.add_argument("--step", "-s", type=int, default=1, help="Frame step when sampling video (default=1)")
-
-    args = parser.parse_args()
-
-    if args.video:
-        out_dir = args.out if args.out else None
-        print(f"Processing video: {args.video}")
-        csv_path = process_video(args.video, output_dir=out_dir, frame_step=args.step)
-        print(f"CSV written to: {csv_path}")
-    else:
-        out_dir = args.out if args.out else None
-        print(f"Processing images folder: {args.images}")
-        csv_path = process_image_folder(args.images, output_dir=out_dir)
-        print(f"CSV written to: {csv_path}")
+    csv_path = process_video('/Users/nithinpillai/Downloads/video_4.mp4', output_dir='/Users/nithinpillai/workspace/JiggyV2/cv/preprocessing/csv', show=True)
+    print(f"CSV written to: {csv_path}")
 
 
 
