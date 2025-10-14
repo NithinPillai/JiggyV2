@@ -111,11 +111,8 @@ export default function SoloPlay({ id }) {
     return out;
   }
 
-  // How close (degrees) a live joint must be to the reference to count as "accepted"
-  const ANGLE_TOL = 15; // tweak to taste
+  const ANGLE_TOL = 15;
   useEffect(() => {
-    // A single function we can call from anywhere to accumulate time + segments.
-    // It uses the *reference video clock* (nowMs).
     function accumulatePhaseImpl(nowMs, color) {
       const s = phaseRef.current;
       const buckets = bucketsRef.current;
