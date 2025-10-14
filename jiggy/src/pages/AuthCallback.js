@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../utils/supabase";
+import { useAuthRedirect } from "../utils/auth";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [message, setMessage] = useState("Signing you in…");
+  const { login } = useAuthRedirect();
 
   useEffect(() => {
     async function handle() {
@@ -30,6 +32,7 @@ export default function AuthCallback() {
           // If we got a session, go home
           const session = data?.session ?? null;
           if (session) {
+            login?.(session.user ?? null);
             setMessage("Sign-in successful, redirecting...");
             navigate("/");
             return;
@@ -64,6 +67,7 @@ export default function AuthCallback() {
                   setError,
                 });
                 if (setData?.session) {
+                  login?.(setData.session.user ?? null);
                   setMessage(
                     "Sign-in successful (via manual setSession), redirecting...",
                   );
@@ -91,6 +95,7 @@ export default function AuthCallback() {
             sessionData,
           });
           if (sessionData?.session) {
+            login?.(sessionData.session.user ?? null);
             setMessage(
               "Sign-in successful (via stored session), redirecting...",
             );
@@ -114,7 +119,7 @@ export default function AuthCallback() {
       }
     }
     handle();
-  }, [navigate]);
+  }, [login, navigate]);
 
   return (
     <div className="mx-auto max-w-2xl p-8">

@@ -9,6 +9,13 @@ import { generateSegments } from "../utils/data";
 import { PrimaryButton, OutlineButton } from "../components/Buttons";
 import { supabase } from "../utils/supabase";
 
+const SPEED_OPTIONS = [
+  { label: "1x", value: 1 },
+  { label: "0.75x", value: 0.75 },
+  { label: "0.5x", value: 0.5 },
+  { label: "0.25x", value: 0.25 },
+];
+
 export default function SoloPlay({ id }) {
   const nav = useNavigate();
   const [totalMs, setTotalMs] = useState(0);
@@ -32,6 +39,8 @@ export default function SoloPlay({ id }) {
   const startedRef = useRef(false);
   const csvReadyRef = useRef(false);
   const bucketsRef = useRef({ green: 0, yellow: 0, red: 0 });
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const playbackRateRef = useRef(1);
 
   // Track current color segment to accumulate deltas
   const phaseRef = useRef({ lastColor: null, lastMs: null });
@@ -448,6 +457,13 @@ export default function SoloPlay({ id }) {
   useEffect(() => {
     csvReadyRef.current = csvReady;
   }, [csvReady]);
+  useEffect(() => {
+    playbackRateRef.current = playbackRate;
+    const video = videoRef.current;
+    if (video) {
+      video.playbackRate = playbackRate;
+    }
+  }, [playbackRate, videoUrl]);
 
   // Create Pose Landmarker (VIDEO mode)
   useEffect(() => {
@@ -850,6 +866,7 @@ export default function SoloPlay({ id }) {
   useEffect(() => {
     if (!started || !videoRef.current) return;
     try {
+      videoRef.current.playbackRate = playbackRateRef.current;
       videoRef.current.muted = false;
     } catch {}
     const p = videoRef.current.play();
@@ -925,14 +942,46 @@ export default function SoloPlay({ id }) {
             </Card>
 
             {/* Center: Controls / Countdown */}
-            <div className="relative flex items-center justify-center">
-              {!countdownActive && !started && (
-                <PrimaryButton onClick={() => setCountdownActive(true)}>
-                  START
-                </PrimaryButton>
-              )}
+            <div className="relative flex items-stretch justify-center">
+              <Card className="flex h-full w-full flex-col items-center justify-between gap-6 p-4 text-center">
+                <div className="w-full">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Playback Speed
+                  </p>
+                  <div className="mt-3 flex flex-wrap justify-center gap-2">
+                    {SPEED_OPTIONS.map(({ value, label }) => {
+                      const active = playbackRate === value;
+                      return (
+                        <button
+                          key={String(value)}
+                          type="button"
+                          onClick={() => setPlaybackRate(value)}
+                          className={`rounded-full border px-3 py-1 text-sm font-semibold transition ${
+                            active
+                              ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
+                              : "border-indigo-200 bg-white/80 text-indigo-600 hover:bg-indigo-50"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {!started ? (
+                  countdownActive ? (
+                    <div className="text-sm font-semibold text-indigo-600">
+                      Get ready…
+                    </div>
+                  ) : (
+                    <PrimaryButton onClick={() => setCountdownActive(true)}>
+                      START
+                    </PrimaryButton>
+                  )
+                ) : null}
+              </Card>
               {!started && countdownActive && (
-                <div className="relative w-full h-full flex items-center justify-center">
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <CountdownOverlay value={count} />
                 </div>
               )}
