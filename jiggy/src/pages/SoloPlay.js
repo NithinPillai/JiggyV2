@@ -110,7 +110,7 @@ export default function SoloPlay({ id }) {
   // === Config ===
   // If you visually mirror the <video> (e.g., CSS scaleX(-1) for front cam), set this true so we mirror the overlay too.
   const MIRROR = true; // always mirror the video element and overlay
-  const ANGLE_TOL = 30;
+  const ANGLE_TOL = 28;
   useEffect(() => {
     function accumulatePhaseImpl(nowMs, color) {
       const s = phaseRef.current;
