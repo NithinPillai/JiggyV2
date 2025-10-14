@@ -110,17 +110,7 @@ export default function SoloPlay({ id }) {
   // === Config ===
   // If you visually mirror the <video> (e.g., CSS scaleX(-1) for front cam), set this true so we mirror the overlay too.
   const MIRROR = true; // always mirror the video element and overlay
-  function toConnectionPairs(CONN) {
-    if (Array.isArray(CONN) && Array.isArray(CONN[0])) return CONN;
-    const out = [];
-    if (CONN && typeof CONN.length === "number") {
-      for (let k = 0; k + 1 < CONN.length; k += 2)
-        out.push([CONN[k], CONN[k + 1]]);
-    }
-    return out;
-  }
-
-  const ANGLE_TOL = 15;
+  const ANGLE_TOL = 35;
   useEffect(() => {
     function accumulatePhaseImpl(nowMs, color) {
       const s = phaseRef.current;
@@ -668,8 +658,10 @@ export default function SoloPlay({ id }) {
                 } else if (liveA !== 181) {
                   // both exist -> compare
                   if (Math.abs(refA - liveA) <= ANGLE_TOL) acc++;
+                } else if (liveA === 181) {
+                  // live missing -> auto-accept
+                  acc++;
                 }
-                // else liveA==181 -> do nothing
               }
               accepted = acc;
             }
