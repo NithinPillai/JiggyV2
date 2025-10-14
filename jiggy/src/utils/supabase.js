@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 // Prefer CRA env var names (REACT_APP_...) so they're available in the browser build
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || "";
-const supabaseKey = process.env.REACT_APP_SUPABASE_KEY || "";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || "";
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || process.env.REACT_APP_SUPABASE_KEY || "";
 
 function createStubClient() {
   console.error(
