@@ -1,7 +1,7 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { useAuthedUser, useAuthRedirect } from '../utils/auth';
-import { useNavigate } from 'react-router-dom';
+import React from "react";
+import { Link } from "react-router-dom";
+import { useAuthedUser, useAuthRedirect } from "../utils/auth";
+import { useNavigate } from "react-router-dom";
 
 export default function Header() {
   const user = useAuthedUser();
@@ -13,9 +13,9 @@ export default function Header() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <Link to="/" className="flex items-center gap-4 select-none">
           {/* Larger logo: using text + svg icon */}
-            <div className="flex items-center gap-2">
-              <img src={'../logo.svg'} alt="Jiggy logo" className="h-12 w-auto" />
-            </div>
+          <div className="flex items-center gap-2">
+            <img src={"../logo.svg"} alt="Jiggy logo" className="h-12 w-auto" />
+          </div>
         </Link>
 
         <div className="flex items-center gap-4">
@@ -28,7 +28,7 @@ export default function Header() {
                     await logout?.();
                   } finally {
                     // navigate to login regardless to refresh UI
-                    nav('/login');
+                    nav("/login");
                   }
                 }}
                 className="px-3 py-1 rounded bg-white/30"
@@ -37,7 +37,9 @@ export default function Header() {
               </button>
             </>
           ) : (
-            <Link to="/login" className="px-3 py-1 rounded bg-white/30">Sign in</Link>
+            <Link to="/login" className="px-3 py-1 rounded bg-white/30">
+              Sign in
+            </Link>
           )}
         </div>
       </div>

@@ -1,14 +1,14 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './utils/auth';
-import Home from './pages/Home';
-import Header from './components/Header';
-import { Login, Signup } from './pages/AuthPages';
-import SoloPlay from './pages/SoloPlay';
-import AuthCallback from './pages/AuthCallback';
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./utils/auth";
+import Home from "./pages/Home";
+import Header from "./components/Header";
+import { Login, Signup } from "./pages/AuthPages";
+import SoloPlay from "./pages/SoloPlay";
+import AuthCallback from "./pages/AuthCallback";
 
 function PlayRouteWrapper() {
-  const id = window.location.pathname.split('/').pop();
+  const id = window.location.pathname.split("/").pop();
   return <SoloPlay id={id} />;
 }
 
@@ -17,7 +17,15 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/" element={<><Header /><Home /></>} />
+          <Route
+            path="/"
+            element={
+              <>
+                <Header />
+                <Home />
+              </>
+            }
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/play/:id" element={<PlayRouteWrapper />} />

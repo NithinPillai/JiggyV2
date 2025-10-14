@@ -50,22 +50,23 @@ def get_pose_angles(landmarks):
         if points[idx1][3] < 0.6 or points[idx2][3] < 0.6 or points[idx3][3] < 0.6:
             return 181
         return calculate_angle([points[idx1][0], points[idx1][1]],
-                               [points[idx2][0], points[idx2][1]],
-                               [points[idx3][0], points[idx3][1]])
+                            [points[idx2][0], points[idx2][1]],
+                            [points[idx3][0], points[idx3][1]])
 
 
-    return {
-        'right_elbow': safe_angle(11, 13, 15),      # Right shoulder, elbow, wrist
-        'left_elbow': safe_angle(12, 14, 16),       # Left shoulder, elbow, wrist
-        'right_knee': safe_angle(23, 25, 27),       # Right hip, knee, ankle
-        'left_knee': safe_angle(24, 26, 28),        # Left hip, knee, ankle
-        'right_shoulder': safe_angle(13, 11, 23),   # Right elbow, shoulder, hip
-        'left_shoulder': safe_angle(14, 12, 24),    # Left elbow, shoulder, hip
+    angles = {
+        'right_elbow':    safe_angle(12, 14, 16),
+        'left_elbow':     safe_angle(11, 13, 15),
+        'right_knee':     safe_angle(24, 26, 28),
+        'left_knee':      safe_angle(23, 25, 27),
+        'right_shoulder': safe_angle(14, 12, 24),
+        'left_shoulder':  safe_angle(13, 11, 23),
     }
+    return angles
 
 
 
-
+UNMIRROR_X = True
 def draw_landmarks_on_image(rgb_image, detection_result):
     pose_landmarks_list = detection_result.pose_landmarks
     # Convert to BGR before creating a copy for drawing
@@ -131,12 +132,69 @@ def process_video(video_path: str, output_dir: Optional[str] = None, show: bool 
                 'left_shoulder': 181,
             }
 
+            # prepare landmark position placeholders (indices 11..32)
+            landmark_positions = {}
+            for i in range(11, 33):
+                landmark_positions[f'lmk_{i}_x'] = float('nan')
+                landmark_positions[f'lmk_{i}_y'] = float('nan')
+                landmark_positions[f'lmk_{i}_z'] = float('nan')
+
+            # neck defaults
+            neck_x = float('nan')
+            neck_y = float('nan')
+            neck_z = float('nan')
+            neck_angle = 181
+
             if detection_result is not None and getattr(detection_result, 'pose_landmarks', None):
                 pose_list = detection_result.pose_landmarks
                 if len(pose_list) > 0:
                     # take the first detected pose
                     landmarks = pose_list[0]
                     angles = get_pose_angles(landmarks)
+
+                    # build points array: x,y,z,visibility
+                    points = np.array([[lmk.x, lmk.y, lmk.z, getattr(lmk, 'visibility', 1.0)] for lmk in landmarks])
+
+                    if UNMIRROR_X:
+                        points[:, 0] = 1.0 - points[:, 0]
+
+                    # Fill landmark positions for indices 11..32 (exclude face 0..10)
+                    for i in range(11, 33):
+                        vis = points[i][3]
+                        if vis >= 0.6:
+                            landmark_positions[f'lmk_{i}_x'] = float(points[i][0])
+                            landmark_positions[f'lmk_{i}_y'] = float(points[i][1])
+                            landmark_positions[f'lmk_{i}_z'] = float(points[i][2])
+                        else:
+                            # leave as NaN when not visible/confident
+                            landmark_positions[f'lmk_{i}_x'] = float('nan')
+                            landmark_positions[f'lmk_{i}_y'] = float('nan')
+                            landmark_positions[f'lmk_{i}_z'] = float('nan')
+
+                    # Compute neck point and neck angle using shoulders (11,12) and mouth (9,10)
+                    # Require visibility on both shoulders and both mouth landmarks
+                    vis_ok = True
+                    for idx in (11, 12, 9, 10):
+                        if points[idx][3] < 0.6:
+                            vis_ok = False
+                            break
+
+                    if vis_ok:
+                        shoulder_mid = np.array([(points[11][0] + points[12][0]) / 2.0,
+                                                  (points[11][1] + points[12][1]) / 2.0,
+                                                  (points[11][2] + points[12][2]) / 2.0])
+                        mouth_mid = np.array([(points[9][0] + points[10][0]) / 2.0,
+                                              (points[9][1] + points[10][1]) / 2.0,
+                                              (points[9][2] + points[10][2]) / 2.0])
+
+                        # neck point is midpoint between shoulder_mid and mouth_mid
+                        neck_point = (shoulder_mid + mouth_mid) / 2.0
+                        neck_x, neck_y, neck_z = map(float, neck_point)
+
+                        # neck orientation: angle of vector from shoulder_mid -> mouth_mid (in degrees)
+                        dx = mouth_mid[0] - shoulder_mid[0]
+                        dy = mouth_mid[1] - shoulder_mid[1]
+                        neck_angle = math.degrees(math.atan2(dy, dx))
 
             # If requested, draw landmarks on the frame and display it.
             if show and detection_result is not None and getattr(detection_result, 'pose_landmarks', None):
@@ -165,6 +223,18 @@ def process_video(video_path: str, output_dir: Optional[str] = None, show: bool 
                 'right_shoulder': angles['right_shoulder'],
                 'left_shoulder': angles['left_shoulder'],
             }
+            # Extend row with landmark positions (11..32)
+            for i in range(11, 33):
+                row[f'lmk_{i}_x'] = landmark_positions.get(f'lmk_{i}_x', float('nan'))
+                row[f'lmk_{i}_y'] = landmark_positions.get(f'lmk_{i}_y', float('nan'))
+                row[f'lmk_{i}_z'] = landmark_positions.get(f'lmk_{i}_z', float('nan'))
+
+            # Add neck point and neck angle
+            row['neck_x'] = neck_x
+            row['neck_y'] = neck_y
+            row['neck_z'] = neck_z
+            row['neck_angle'] = neck_angle
+
             rows.append(row)
 
             frame_idx += 1
@@ -205,8 +275,10 @@ def process_video(video_path: str, output_dir: Optional[str] = None, show: bool 
 
 
 if __name__ == "__main__":
-    csv_path = process_video('/Users/nithinpillai/Downloads/video_4.mp4', output_dir='/Users/nithinpillai/workspace/JiggyV2/cv/preprocessing/csv', show=True)
-    print(f"CSV written to: {csv_path}")
+    for i in range(1, 8):
+        print(f"Processing video_{i}")
+        csv_path = process_video(f'/Users/nithinpillai/Downloads/video_{i}.mp4', output_dir='/Users/nithinpillai/workspace/JiggyV2/cv/preprocessing/csv', show=True)
+        print(f"CSV written to: {csv_path}")
 
 
 

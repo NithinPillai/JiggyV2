@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { supabase } from './supabase';
+import { useEffect, useState } from "react";
+import { supabase } from "./supabase";
 
 // A tiny auth layer that mirrors supabase auth state into a module-global singleton
 const __authSingleton = { set: null, get: null };
@@ -17,10 +17,12 @@ export function useAuth() {
       setUser(u);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      const u = session?.user ?? null;
-      setUser(u);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        const u = session?.user ?? null;
+        setUser(u);
+      },
+    );
 
     return () => {
       mounted = false;
@@ -39,7 +41,7 @@ export function useAuth() {
       const { data } = await supabase.auth.getSession();
       setUser(data?.session?.user ?? null);
     } catch (err) {
-      console.error('Failed to get session during login()', err);
+      console.error("Failed to get session during login()", err);
       setUser(null);
     }
   };
@@ -62,10 +64,12 @@ export function AuthProvider({ children }) {
 
 export function useAuthRedirect() {
   // Return a safe object so callers can destructure { login, logout }
-  return __authSingleton.set ?? {
-    login: async () => {},
-    logout: async () => {},
-  };
+  return (
+    __authSingleton.set ?? {
+      login: async () => {},
+      logout: async () => {},
+    }
+  );
 }
 
 export function useAuthedUser() {
