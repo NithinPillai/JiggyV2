@@ -123,9 +123,6 @@ export function Login() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
             />
-            <div className="mt-1 text-right text-xs text-gray-500">
-              Forgot Password
-            </div>
             <div className="mt-1 text-right text-xs">
               <button
                 onClick={handleForgotPassword}
