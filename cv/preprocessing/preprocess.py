@@ -275,7 +275,7 @@ def process_video(video_path: str, output_dir: Optional[str] = None, show: bool 
 
 
 if __name__ == "__main__":
-    for i in range(1, 8):
+    for i in range(8, 10):
         print(f"Processing video_{i}")
         csv_path = process_video(f'/Users/nithinpillai/Downloads/video_{i}.mp4', output_dir='/Users/nithinpillai/workspace/JiggyV2/cv/preprocessing/csv', show=True)
         print(f"CSV written to: {csv_path}")
